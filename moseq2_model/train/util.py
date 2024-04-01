@@ -1,6 +1,7 @@
 """
 ARHMM utility functions
 """
+
 import numpy as np
 from tqdm.auto import tqdm
 from functools import partial
@@ -9,10 +10,21 @@ from collections import OrderedDict, defaultdict
 from moseq2_model.util import save_arhmm_checkpoint, get_loglikelihoods
 
 
-def train_model(model, num_iter=100, ncpus=1, checkpoint_freq=None,
-                checkpoint_file=None, start=0, progress_kwargs={},
-                train_data=None, val_data=None, separate_trans=False, groups=None, 
-                verbose=False, check_every=2):
+def train_model(
+    model,
+    num_iter=100,
+    ncpus=1,
+    checkpoint_freq=None,
+    checkpoint_file=None,
+    start=0,
+    progress_kwargs={},
+    train_data=None,
+    val_data=None,
+    separate_trans=False,
+    groups=None,
+    verbose=False,
+    check_every=2,
+):
     """
     Train ARHMM for inputted number of iterations.
 
@@ -45,21 +57,28 @@ def train_model(model, num_iter=100, ncpus=1, checkpoint_freq=None,
 
     iter_lls, iter_holls = [], []
 
-    for itr in tqdm(range(start, num_iter), **progress_kwargs, desc='Training ARHMM'):
+    for itr in tqdm(range(start, num_iter), **progress_kwargs, desc="Training ARHMM"):
         # Resample states, and gracefully return in case of a keyboard interrupt
         try:
             model.resample_model(num_procs=ncpus)
         except KeyboardInterrupt:
-            print('Training manually interrupted.')
-            print('Returning and saving current iteration of model. ')
-            return model, model.log_likelihood(), get_labels_from_model(model), iter_lls, iter_holls, True
+            print("Training manually interrupted.")
+            print("Returning and saving current iteration of model. ")
+            return (
+                model,
+                model.log_likelihood(),
+                get_labels_from_model(model),
+                iter_lls,
+                iter_holls,
+                True,
+            )
 
         summ_stats = {
-            'model': model,
-            'groups': groups,
-            'train_data': train_data,
-            'val_data': val_data,
-            'separate_trans': separate_trans
+            "model": model,
+            "groups": groups,
+            "train_data": train_data,
+            "val_data": val_data,
+            "separate_trans": separate_trans,
         }
 
         if verbose and ((itr + 1) % check_every == 0):
@@ -73,7 +92,14 @@ def train_model(model, num_iter=100, ncpus=1, checkpoint_freq=None,
         if checkpoint and ((itr + 1) % checkpoint_freq == 0):
             training_checkpoint(model, itr, checkpoint_file)
 
-    return model, model.log_likelihood(), get_labels_from_model(model), iter_lls, iter_holls, False
+    return (
+        model,
+        model.log_likelihood(),
+        get_labels_from_model(model),
+        iter_lls,
+        iter_holls,
+        False,
+    )
 
 
 def training_checkpoint(model, itr, checkpoint_file):
@@ -88,14 +114,14 @@ def training_checkpoint(model, itr, checkpoint_file):
 
     # Pack the data to save in checkpoint
     save_data = {
-        'iter': itr + 1,
-        'model': model,
-        'log_likelihoods': model.log_likelihood(),
-        'labels': get_labels_from_model(model)
+        "iter": itr + 1,
+        "model": model,
+        "log_likelihoods": model.log_likelihood(),
+        "labels": get_labels_from_model(model),
     }
 
     # Format checkpoint filename
-    checkpoint_file = f'{checkpoint_file}-checkpoint_{itr}.arhmm'
+    checkpoint_file = f"{checkpoint_file}-checkpoint_{itr}.arhmm"
 
     # Save checkpoint
     save_arhmm_checkpoint(checkpoint_file, save_data)
@@ -125,16 +151,18 @@ def get_model_summary(model, groups, train_data, val_data, separate_trans):
         train_groups, val_groups = None, None
 
     # Compute normalized log-likelihoods for each session
-    train_ll = get_loglikelihoods(model, train_data, train_groups,
-                                  separate_trans, normalize=True)
+    train_ll = get_loglikelihoods(
+        model, train_data, train_groups, separate_trans, normalize=True
+    )
 
     # return early if there is no validation data
     if val_data is None:
         return np.mean(train_ll), None
 
     # Get iteration heldout/validation log-likelihood values
-    val_ll = get_loglikelihoods(model, val_data, val_groups,
-                                separate_trans, normalize=True)
+    val_ll = get_loglikelihoods(
+        model, val_data, val_groups, separate_trans, normalize=True
+    )
 
     return np.mean(train_ll), np.mean(val_ll)
 
@@ -150,46 +178,57 @@ def get_labels_from_model(model):
     labels (list): An array of predicted syllable labels for each training session
     """
 
-    labels = [np.append(np.repeat(-5, model.nlags), s.stateseq) for s in model.states_list]
+    labels = [
+        np.append(np.repeat(-5, model.nlags), s.stateseq) for s in model.states_list
+    ]
     return labels
 
 
-def apply_model(model, whitening_params, data_dict, metadata, whiten='all'):
-    '''
+def apply_model(model, whitening_params, data_dict, metadata, whiten="all"):
+    """
     Apply pre-trained model to data_dict. Note that this function might produce unexpected behavior
     if the model was trained using separate transition matrices for different groups of sessions.
-    
+
     Args:
         model (ARHMM): pre-trained model
         whitening_params (namedtuple or dict): whitening parameters
         data_dict (OrderedDict): data to apply model to
         metadata (dict): metadata for data_dict
-    
+
     Returns:
         labels (dict): dictionary of labels predicted per session after modeling
-    '''
+    """
 
     # whiten data function
-    mu, L, offset = whitening_params['mu'], whitening_params['L'], whitening_params['offset']
-    apply_whitening = lambda x: np.linalg.solve(L, (x-mu).T).T + offset
-    
+    mu, L, offset = (
+        whitening_params["mu"],
+        whitening_params["L"],
+        whitening_params["offset"],
+    )
+    apply_whitening = lambda x: np.linalg.solve(L, (x - mu).T).T + offset
+
     # check for whiten parameters to see if whiten_all or whiten_each
-    if whiten[0].lower() == 'e':
+    if whiten[0].lower() == "e":
         # this approach is not recommended, but supported
-        center = whitening_params[list(whitening_params)[0]]['offset'] == 0
+        center = whitening_params[list(whitening_params)[0]]["offset"] == 0
         whitened_data, _ = whiten_each(data_dict, center)
     else:
         whitened_data = valmap(apply_whitening, data_dict)
 
     # apply model to data
-    if 'SeparateTrans' in str(type(model)):
+    if "SeparateTrans" in str(type(model)):
         # not recommended, but supported
-        labels = itemmap(lambda item: (item[0], model.heldout_viterbi(item[1], group_id=metadata['groups'][item[0]])), whitened_data)
+        labels = itemmap(
+            lambda item: (
+                item[0],
+                model.heldout_viterbi(item[1], group_id=metadata["groups"][item[0]]),
+            ),
+            whitened_data,
+        )
     else:
         labels = valmap(model.heldout_viterbi, whitened_data)
 
     return labels
-
 
 
 # taken from moseq by @mattjj and @alexbw
@@ -207,16 +246,19 @@ def whiten_all(data_dict, center=True):
 
     non_nan = lambda x: x[~np.isnan(np.reshape(x, (x.shape[0], -1))).any(1)]
     meancov = lambda x: (x.mean(0), np.cov(x, rowvar=False, bias=1))
-    contig = partial(np.require, dtype=np.float64, requirements='C')
+    contig = partial(np.require, dtype=np.float64, requirements="C")
 
     mu, Sigma = meancov(np.concatenate(list(map(non_nan, data_dict.values()))))
     L = np.linalg.cholesky(Sigma)
 
-    offset = 0. if center else mu
+    offset = 0.0 if center else mu
     # set up function to whiten data
-    apply_whitening = lambda x:  np.linalg.solve(L, (x-mu).T).T + offset
-    whitening_parameters = {'mu': mu, 'L': L, 'offset': offset}
-    return OrderedDict((k, contig(apply_whitening(v))) for k, v in data_dict.items()), whitening_parameters
+    apply_whitening = lambda x: np.linalg.solve(L, (x - mu).T).T + offset
+    whitening_parameters = {"mu": mu, "L": L, "offset": offset}
+    return (
+        OrderedDict((k, contig(apply_whitening(v))) for k, v in data_dict.items()),
+        whitening_parameters,
+    )
 
 
 # taken from moseq by @mattjj and @alexbw
@@ -363,6 +405,6 @@ def rleslices(seq):
     (map generator): slices of syllable changepoints
     """
 
-    pos, = np.where(np.diff(seq) != 0)
-    pos = np.concatenate(([0], pos+1, [len(seq)]))
+    (pos,) = np.where(np.diff(seq) != 0)
+    pos = np.concatenate(([0], pos + 1, [len(seq)]))
     return map(slice, pos[:-1], pos[1:])
