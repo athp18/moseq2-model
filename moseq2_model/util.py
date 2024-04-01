@@ -548,7 +548,7 @@ def count_frames(data_dict=None, input_file=None, var_name="scores"):
     for v in data_dict.values():
         idx = (~np.isnan(v)).all(axis=1)
         total_frames += np.sum(idx)
-
+    print("The total number of frames:", total_frames)
     return total_frames
 
 
