@@ -1,6 +1,7 @@
 """
 Utility functions for handling loading and saving models and their respective metadata.
 """
+
 import os
 import re
 import h5py
@@ -15,6 +16,7 @@ from collections import OrderedDict
 from moseq2_model.train.models import ARHMM
 from autoregressive.util import AR_striding
 from os.path import basename, getctime, join, exists
+
 
 def load_pcs(filename, var_name="features", load_groups=False, npcs=10):
     """
@@ -32,23 +34,25 @@ def load_pcs(filename, var_name="features", load_groups=False, npcs=10):
     """
 
     metadata = {
-        'uuids': None,
-        'groups': {},
+        "uuids": None,
+        "groups": {},
     }
 
-    if filename.endswith('.mat'):
-        print('Loading data from matlab file')
+    if filename.endswith(".mat"):
+        print("Loading data from matlab file")
         data_dict = load_data_from_matlab(filename, var_name, npcs)
 
         # convert the uuid list to something that will export easily...
-        metadata['uuids'] = load_cell_string_from_matlab(filename, "uuids")
+        metadata["uuids"] = load_cell_string_from_matlab(filename, "uuids")
         if load_groups:
-            metadata['groups'] = dict(zip(metadata['uuids'], load_cell_string_from_matlab(filename, "groups")))
+            metadata["groups"] = dict(
+                zip(metadata["uuids"], load_cell_string_from_matlab(filename, "groups"))
+            )
         else:
-            metadata['groups'] = None
+            metadata["groups"] = None
 
-    elif filename.endswith(('.z', '.pkl', '.p')):
-        print('Loading data from pickle file')
+    elif filename.endswith((".z", ".pkl", ".p")):
+        print("Loading data from pickle file")
         data_dict = joblib.load(filename)
 
         if not isinstance(data_dict, OrderedDict):
@@ -56,21 +60,21 @@ def load_pcs(filename, var_name="features", load_groups=False, npcs=10):
 
         # Reading in PCs and associated groups
         if isinstance(first(data_dict.values()), tuple):
-            print('Detected tuple')
+            print("Detected tuple")
             for k, v in data_dict.items():
                 data_dict[k] = v[0][:, :npcs]
-                metadata['groups'][k] = v[1]
+                metadata["groups"][k] = v[1]
         else:
             for k, v in data_dict.items():
                 data_dict[k] = v[:, :npcs]
 
-        metadata['uuids'] = list(data_dict)
+        metadata["uuids"] = list(data_dict)
 
-    elif filename.endswith('.h5'):
+    elif filename.endswith(".h5"):
         # Reading PCs from h5 file
-        with h5py.File(filename, 'r') as f:
+        with h5py.File(filename, "r") as f:
             if var_name in f:
-                print(f'Found pcs in {var_name}')
+                print(f"Found pcs in {var_name}")
                 tmp = f[var_name]
 
                 # Reading in PCs into training dict
@@ -80,28 +84,38 @@ def load_pcs(filename, var_name="features", load_groups=False, npcs=10):
                 elif isinstance(tmp, h5py.Group):
                     # Reading in PCs
                     data_dict = OrderedDict([(k, v[:, :npcs]) for k, v in tmp.items()])
-                    # Optionally loading groups if they 
+                    # Optionally loading groups if they
                     if load_groups:
-                        if 'groups' in f:
-                            metadata['groups'] = {key: f['groups'][i] for i, key in enumerate(data_dict) if key in f['metadata']}
+                        if "groups" in f:
+                            metadata["groups"] = {
+                                key: f["groups"][i]
+                                for i, key in enumerate(data_dict)
+                                if key in f["metadata"]
+                            }
                         else:
-                            warnings.warn('groups key not found in h5 file, assigning each session to unique group if no moseq2-index.yaml')
-                            metadata['groups'] = {key: i for i, key in enumerate(data_dict)}
+                            warnings.warn(
+                                "groups key not found in h5 file, assigning each session to unique group if no moseq2-index.yaml"
+                            )
+                            metadata["groups"] = {
+                                key: i for i, key in enumerate(data_dict)
+                            }
                     else:
-                        warnings.warn('groups not loaded from h5 file. Assigning each session to unique group if no moseq2-index.yaml')
-                        metadata['groups'] = {key: i for i, key in enumerate(data_dict)}
+                        warnings.warn(
+                            "groups not loaded from h5 file. Assigning each session to unique group if no moseq2-index.yaml"
+                        )
+                        metadata["groups"] = {key: i for i, key in enumerate(data_dict)}
                 else:
-                    raise IOError('Could not load data from h5 file')
+                    raise IOError("Could not load data from h5 file")
             else:
-                raise IOError(f'Could not find dataset name {var_name} in {filename}')
+                raise IOError(f"Could not find dataset name {var_name} in {filename}")
 
             # if all the h5 data keys are uuids, use them to store uuid information
             if all(map(is_uuid, data_dict)):
-                metadata['uuids'] = list(data_dict)
-            elif 'metadata' in f:
-                metadata['uuids'] = list(f['metadata'])
+                metadata["uuids"] = list(data_dict)
+            elif "metadata" in f:
+                metadata["uuids"] = list(f["metadata"])
     else:
-        raise ValueError('Did not understand filetype')
+        raise ValueError("Did not understand filetype")
 
     return data_dict, metadata
 
@@ -116,7 +130,10 @@ def is_uuid(string):
     Returns:
     (bool): boolean to indicate if a string is a uuid.
     """
-    regex = re.compile('^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}\Z', re.I)
+    regex = re.compile(
+        "^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}\Z",
+        re.I,
+    )
     match = regex.match(string)
     return bool(match)
 
@@ -141,20 +158,20 @@ def get_current_model(use_checkpoint, all_checkpoints, train_data, model_paramet
     if use_checkpoint and len(all_checkpoints) > 0:
         # Get latest checkpoint (with respect to save date)
         latest_checkpoint = max(all_checkpoints, key=getctime)
-        click.echo(f'Loading Checkpoint: {basename(latest_checkpoint)}')
+        click.echo(f"Loading Checkpoint: {basename(latest_checkpoint)}")
         try:
             checkpoint = load_arhmm_checkpoint(latest_checkpoint, train_data)
             # Get model object
-            arhmm = checkpoint.pop('model')
-            itr = checkpoint.pop('iter')
-            click.echo(f'On iteration {itr}')
+            arhmm = checkpoint.pop("model")
+            itr = checkpoint.pop("iter")
+            click.echo(f"On iteration {itr}")
         except (FileNotFoundError, ValueError):
-            click.echo('Loading original checkpoint failed, creating new ARHMM')
+            click.echo("Loading original checkpoint failed, creating new ARHMM")
             arhmm = ARHMM(data_dict=train_data, **model_parameters)
     else:
         if use_checkpoint:
-            print('No checkpoints found.', end=' ')
-        click.echo('Creating new ARHMM')
+            print("No checkpoints found.", end=" ")
+        click.echo("Creating new ARHMM")
         arhmm = ARHMM(data_dict=train_data, **model_parameters)
 
     return arhmm, itr
@@ -176,7 +193,9 @@ def get_loglikelihoods(arhmm, data, groups, separate_trans, normalize=True):
     """
 
     if separate_trans:
-        ll = [arhmm.log_likelihood(v, group_id=g) for g, v in zip(groups, data.values())]
+        ll = [
+            arhmm.log_likelihood(v, group_id=g) for g, v in zip(groups, data.values())
+        ]
     else:
         ll = [arhmm.log_likelihood(v) for v in data.values()]
     if normalize:
@@ -200,8 +219,8 @@ def get_session_groupings(data_metadata, train_list, hold_out_list):
     """
 
     # Get held out groups
-    hold_g = [data_metadata['groups'][k] for k in hold_out_list]
-    train_g = [data_metadata['groups'][k] for k in train_list]
+    hold_g = [data_metadata["groups"][k] for k in hold_out_list]
+    train_g = [data_metadata["groups"][k] for k in train_list]
 
     # Ensure training groups were found before setting grouping
     if len(train_g) != 0:
@@ -219,30 +238,30 @@ def save_dict(filename, obj_to_save=None):
     """
 
     # Parsing given file extension and saving model accordingly
-    if filename.endswith('.mat'):
-        print('Saving MAT file', filename)
+    if filename.endswith(".mat"):
+        print("Saving MAT file", filename)
         scipy.io.savemat(filename, mdict=obj_to_save)
-    elif filename.endswith('.z'):
-        print('Saving compressed pickle', filename)
-        joblib.dump(obj_to_save, filename, compress=('zlib', 4))
-    elif filename.endswith(('.pkl', '.p')):
-        print('Saving pickle', filename)
+    elif filename.endswith(".z"):
+        print("Saving compressed pickle", filename)
+        joblib.dump(obj_to_save, filename, compress=("zlib", 4))
+    elif filename.endswith((".pkl", ".p")):
+        print("Saving pickle", filename)
         joblib.dump(obj_to_save, filename, compress=0)
-    elif filename.endswith('.h5'):
-        print('Saving h5 file', filename)
-        with h5py.File(filename, 'w') as f:
+    elif filename.endswith(".h5"):
+        print("Saving h5 file", filename)
+        with h5py.File(filename, "w") as f:
             dict_to_h5(f, obj_to_save)
     else:
-        raise ValueError('Did not understand filetype')
+        raise ValueError("Did not understand filetype")
 
-    
+
 def load_dict(filename):
     """
     Load dictionary from file.
 
     Args:
         filename (str): path to file where dict is saved
-    
+
     Returns:
         obj (dict): loaded dictionary
     """
@@ -254,7 +273,7 @@ def load_dict(filename):
         raise ValueError(f"Does not support filetype {os.path.splitext(filename)[1]}")
 
 
-def dict_to_h5(h5file, export_dict, path='/'):
+def dict_to_h5(h5file, export_dict, path="/"):
     """
     Recursively save dicts to h5 file groups.
 
@@ -271,23 +290,23 @@ def dict_to_h5(h5file, export_dict, path='/'):
         if isinstance(key, (tuple, int)):
             key = str(key)
         if isinstance(item, str):
-            item = item.encode('utf8')
+            item = item.encode("utf8")
 
         # Write dict item to h5 based on its data-type
         if isinstance(item, np.ndarray) and item.dtype == np.object:
             dt = h5py.special_dtype(vlen=np.array(item.flat[0]).dtype)
-            h5file.create_dataset(path+key, item.shape, dtype=dt, compression='gzip')
+            h5file.create_dataset(path + key, item.shape, dtype=dt, compression="gzip")
             for tup, _ in np.ndenumerate(item):
                 if item[tup] is not None:
-                    h5file[path+key][tup] = np.array(item[tup]).ravel()
+                    h5file[path + key][tup] = np.array(item[tup]).ravel()
         elif isinstance(item, (np.ndarray, list)):
-            h5file.create_dataset(path+key, data=item, compression='gzip')
+            h5file.create_dataset(path + key, data=item, compression="gzip")
         elif isinstance(item, (np.int, np.float, str, bytes)):
-            h5file.create_dataset(path+key, data=item)
+            h5file.create_dataset(path + key, data=item)
         elif isinstance(item, dict):
-            dict_to_h5(h5file, item, path + key + '/')
+            dict_to_h5(h5file, item, path + key + "/")
         else:
-            raise ValueError(f'Cannot save {type(item)} type')
+            raise ValueError(f"Cannot save {type(item)} type")
 
 
 def load_arhmm_checkpoint(filename: str, train_data: dict) -> dict:
@@ -304,11 +323,11 @@ def load_arhmm_checkpoint(filename: str, train_data: dict) -> dict:
 
     # Loading model and its respective number of lags
     mdl_dict = joblib.load(filename)
-    nlags = mdl_dict['model'].nlags
+    nlags = mdl_dict["model"].nlags
 
-    for s, t in zip(mdl_dict['model'].states_list, train_data.values()):
+    for s, t in zip(mdl_dict["model"].states_list, train_data.values()):
         # Loading model AR-strided data
-        s.data = AR_striding(t.astype('float32'), nlags)
+        s.data = AR_striding(t.astype("float32"), nlags)
 
     return mdl_dict
 
@@ -323,12 +342,12 @@ def save_arhmm_checkpoint(filename: str, arhmm: dict):
     """
 
     # Getting model object
-    mdl = arhmm.pop('model')
-    arhmm['model'] = copy_model(mdl)
+    mdl = arhmm.pop("model")
+    arhmm["model"] = copy_model(mdl)
 
     # Save model
-    print(f'Saving Checkpoint {filename}')
-    joblib.dump(arhmm, filename, compress=('zlib', 5))
+    print(f"Saving Checkpoint {filename}")
+    joblib.dump(arhmm, filename, compress=("zlib", 5))
 
 
 def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
@@ -346,18 +365,18 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     ans = {}
     if isinstance(file[path], h5py._hl.dataset.Dataset):
         # only use the final path key to add to `ans`
-        ans[path.split('/')[-1]] = file[path][()]
+        ans[path.split("/")[-1]] = file[path][()]
     else:
         # Reading in h5 value into dict key-value pair
         for key, item in file[path].items():
             if isinstance(item, h5py.Dataset):
                 ans[key] = item[()]
             elif isinstance(item, h5py.Group):
-                ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
+                ans[key] = _load_h5_to_dict(file, "/".join([path, key]))
     return ans
 
 
-def h5_to_dict(h5file, path: str = '/') -> dict:
+def h5_to_dict(h5file, path: str = "/") -> dict:
     """
     Load h5 data to dictionary from a user specified path.
 
@@ -371,12 +390,12 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
 
     # Load h5 file according to whether it is separated by Groups
     if isinstance(h5file, str):
-        with h5py.File(h5file, 'r') as f:
+        with h5py.File(h5file, "r") as f:
             out = _load_h5_to_dict(f, path)
     elif isinstance(h5file, (h5py.File, h5py.Group)):
         out = _load_h5_to_dict(h5file, path)
     else:
-        raise Exception('file input not understood - need h5 file path or file object')
+        raise Exception("file input not understood - need h5 file path or file object")
     return out
 
 
@@ -395,7 +414,7 @@ def load_data_from_matlab(filename, var_name="features", npcs=10):
 
     data_dict = OrderedDict()
 
-    with h5py.File(filename, 'r') as f:
+    with h5py.File(filename, "r") as f:
         # Loading PCs scores into training data dict
         if var_name in f:
             score_tmp = f[var_name]
@@ -420,7 +439,7 @@ def load_cell_string_from_matlab(filename, var_name="uuids"):
     """
 
     return_list = []
-    with h5py.File(filename, 'r') as f:
+    with h5py.File(filename, "r") as f:
 
         if var_name in f:
             tmp = f[var_name]
@@ -428,8 +447,8 @@ def load_cell_string_from_matlab(filename, var_name="uuids"):
             # change unichr to chr for python 3
             for i in range(len(tmp)):
                 tmp2 = f[tmp[i][0]]
-                uni_list = [''.join(chr(c)) for c in tmp2]
-                return_list.append(''.join(uni_list))
+                uni_list = ["".join(chr(c)) for c in tmp2]
+                return_list.append("".join(uni_list))
 
     return return_list
 
@@ -477,7 +496,7 @@ def get_parameters_from_model(model):
     init_obs_dist = model.init_emission_distn.hypparams
 
     # Loading transition graph(s)
-    if hasattr(model, 'trans_distns'):
+    if hasattr(model, "trans_distns"):
         trans_dist = model.trans_distns[0]
     else:
         trans_dist = model.trans_distn
@@ -486,28 +505,28 @@ def get_parameters_from_model(model):
 
     # Packing object parameters into a single dict
     parameters = {
-        'kappa': trans_dist.kappa,
-        'gamma': trans_dist.gamma,
-        'alpha': trans_dist.alpha,
-        'nu': np.nan,
-        'max_states': trans_dist.N,
-        'nu_0': init_obs_dist['nu_0'],
-        'sigma_0': init_obs_dist['sigma_0'],
-        'kappa_0': init_obs_dist['kappa_0'],
-        'nlags': model.nlags,
-        'mu_0': init_obs_dist['mu_0'],
-        'model_class': model.__class__.__name__,
-        'ar_mat': [obs.A for obs in model.obs_distns],
-        'sig': [obs.sigma for obs in model.obs_distns]
-        }
+        "kappa": trans_dist.kappa,
+        "gamma": trans_dist.gamma,
+        "alpha": trans_dist.alpha,
+        "nu": np.nan,
+        "max_states": trans_dist.N,
+        "nu_0": init_obs_dist["nu_0"],
+        "sigma_0": init_obs_dist["sigma_0"],
+        "kappa_0": init_obs_dist["kappa_0"],
+        "nlags": model.nlags,
+        "mu_0": init_obs_dist["mu_0"],
+        "model_class": model.__class__.__name__,
+        "ar_mat": [obs.A for obs in model.obs_distns],
+        "sig": [obs.sigma for obs in model.obs_distns],
+    }
 
-    if 'nu' in ls_obj:
-        parameters['nu'] = [obs.nu for obs in model.obs_distns]
+    if "nu" in ls_obj:
+        parameters["nu"] = [obs.nu for obs in model.obs_distns]
 
     return parameters
 
 
-def count_frames(data_dict=None, input_file=None, var_name='scores'):
+def count_frames(data_dict=None, input_file=None, var_name="scores"):
     """
     Count the total number of frames loaded from the PC scores file.
 
@@ -521,13 +540,15 @@ def count_frames(data_dict=None, input_file=None, var_name='scores'):
     """
 
     if data_dict is None and input_file is not None:
-        data_dict, _ = load_pcs(filename=input_file, var_name=var_name, load_groups=True)
+        data_dict, _ = load_pcs(
+            filename=input_file, var_name=var_name, load_groups=True
+        )
 
     total_frames = 0
     for v in data_dict.values():
         idx = (~np.isnan(v)).all(axis=1)
         total_frames += np.sum(idx)
-
+    print("The total number of frames:", total_frames)
     return total_frames
 
 
@@ -545,37 +566,39 @@ def get_parameter_strings(config_data):
 
     parameters = f' --npcs {config_data["npcs"]} --num-iter {config_data["num_iter"]} '
 
-    if isinstance(config_data['index'], str):
-        if exists(config_data['index']):
+    if isinstance(config_data["index"], str):
+        if exists(config_data["index"]):
             parameters += f'-i {config_data["index"]} '
 
-    if config_data['separate_trans']:
-        parameters += '--separate-trans '
+    if config_data["separate_trans"]:
+        parameters += "--separate-trans "
 
-    if config_data['robust']:
-        parameters += '--robust '
+    if config_data["robust"]:
+        parameters += "--robust "
 
-    if config_data['e_step']:
-        parameters += '--e-step '
+    if config_data["e_step"]:
+        parameters += "--e-step "
 
-    if config_data['hold_out']:
+    if config_data["hold_out"]:
         parameters += f'--hold-out --nfolds {config_data["nfolds"]} '
 
-    if config_data['max_states']:
+    if config_data["max_states"]:
         parameters += f'--max-states {config_data["max_states"]} '
-    if config_data['ncpus'] > 0:
+    if config_data["ncpus"] > 0:
         parameters += f'--ncpus {config_data["ncpus"]} '
 
     # Handle possible Slurm batch functionality
-    prefix = ''
-    if config_data['cluster_type'] == 'slurm':
+    prefix = ""
+    if config_data["cluster_type"] == "slurm":
         prefix = f'sbatch -c {config_data["ncpus"] if config_data["ncpus"] > 0 else 8} --mem={config_data["memory"]} '
         prefix += f'-p {config_data["partition"]} -t {config_data["wall_time"]} --wrap "{config_data["prefix"]}'
 
     return parameters, prefix
 
 
-def create_command_strings(input_file, output_dir, config_data, kappas, model_name_format='model-{:03d}-{}.p'):
+def create_command_strings(
+    input_file, output_dir, config_data, kappas, model_name_format="model-{:03d}-{}.p"
+):
     """
     Create the CLI learn-model command strings with parameter flags based on the contents of the configuration dict.
 
@@ -591,29 +614,34 @@ def create_command_strings(input_file, output_dir, config_data, kappas, model_na
     """
 
     # Get base command and parameter flags
-    base_command = f'moseq2-model learn-model {input_file} '
+    base_command = f"moseq2-model learn-model {input_file} "
     parameters, prefix = get_parameter_strings(config_data)
 
     commands = []
     for i, k in enumerate(kappas):
         # Create CLI command
-        cmd = base_command + join(output_dir, model_name_format.format(i, k)) + parameters + f'--kappa {k}'
+        cmd = (
+            base_command
+            + join(output_dir, model_name_format.format(i, k))
+            + parameters
+            + f"--kappa {k}"
+        )
 
         # Add possible batch fitting prefix string
-        if config_data['cluster_type'] == 'slurm':
+        if config_data["cluster_type"] == "slurm":
             cmd = prefix + cmd + '"'
         commands.append(cmd)
 
     # Create and return the command string
-    command_string = '\n'.join(commands)
-    command_string = 'set -e\n' + command_string
+    command_string = "\n".join(commands)
+    command_string = "set -e\n" + command_string
     return command_string
 
 
 def get_scan_range_kappas(data_dict, config_data):
     """
     Get the kappa values to train models on based on the user's selected scanning scale range.
-    Default values will be selected if min/max_kappa are None. 
+    Default values will be selected if min/max_kappa are None.
 
     An example: scan_scale = 'log'; nframes = 1800; min_kappa = 10e3; max_kappa = 10e5; n_models = 10;
     >>> kappas = [1000, 1668, 2782, 4641, 7742, 12915, 21544, 35938, 59948, 100000]
@@ -638,34 +666,42 @@ def get_scan_range_kappas(data_dict, config_data):
 
     nframes = count_frames(data_dict)
 
-    if config_data.get('scan_scale', 'log') == 'log':
+    if config_data.get("scan_scale", "log") == "log":
         # Get log scan range
         factor = int(np.log10(nframes))
-        if config_data['min_kappa'] is None:
-            min_factor = factor - 2 # Set default value
+        if config_data["min_kappa"] is None:
+            min_factor = factor - 2  # Set default value
         else:
-            min_factor = np.log10(config_data['min_kappa'])
+            min_factor = np.log10(config_data["min_kappa"])
 
-        if config_data['max_kappa'] is None:
-            max_factor = factor + 2 # Set default value
+        if config_data["max_kappa"] is None:
+            max_factor = factor + 2  # Set default value
         else:
-            max_factor = np.log10(config_data['max_kappa'])
+            max_factor = np.log10(config_data["max_kappa"])
 
-        kappas = np.round(np.logspace(min_factor, max_factor, config_data['n_models'])).astype('int')
-        config_data['min_kappa'] = kappas[0]
-        config_data['max_kappa'] = kappas[-1]
+        kappas = np.round(
+            np.logspace(min_factor, max_factor, config_data["n_models"])
+        ).astype("int")
+        config_data["min_kappa"] = kappas[0]
+        config_data["max_kappa"] = kappas[-1]
 
-    elif config_data['scan_scale'] == 'linear':
+    elif config_data["scan_scale"] == "linear":
         # Get linear scan range
         # Handle either of the missing parameters
-        if config_data['min_kappa'] is None:
+        if config_data["min_kappa"] is None:
             # Choosing a minimum kappa value (AKA value to begin the scan from)
             # less than the counted number of frames
-            config_data['min_kappa'] = min(nframes, nframes / 1e2)  # default initial kappa value
-        if config_data['max_kappa'] is None:
+            config_data["min_kappa"] = min(
+                nframes, nframes / 1e2
+            )  # default initial kappa value
+        if config_data["max_kappa"] is None:
             # If no max is specified, max kappa will be 100x the number of frames.
-            config_data['max_kappa'] = max(nframes, nframes * 1e2)  # default initial kappa values
+            config_data["max_kappa"] = max(
+                nframes, nframes * 1e2
+            )  # default initial kappa values
 
-        kappas = np.linspace(config_data['min_kappa'], config_data['max_kappa'], config_data['n_models']).astype('int')
+        kappas = np.linspace(
+            config_data["min_kappa"], config_data["max_kappa"], config_data["n_models"]
+        ).astype("int")
 
     return kappas
