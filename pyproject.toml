@@ -8,7 +8,7 @@ readme = "README.md"
 authors = [
     {name = "Datta Lab"},
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 dependencies = [
     "autoregressive @ git+https://github.com/sneakers-the-rat/pyhsmm-autoregressive.git@packaging",
     "click>=7.0",
