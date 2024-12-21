@@ -10,7 +10,7 @@ authors = [
 ]
 requires-python = ">=3.9,<3.13"
 dependencies = [
-    "autoregressive @ git+https://github.com/sneakers-the-rat/pyhsmm-autoregressive.git@packaging",
+    "autoregressive @ git+https://github.com/athp18/pyhsmm-autoregressive",
     "click>=7.0",
     "cython>=0.29.14",
     "cytoolz>=0.10.1",
@@ -21,8 +21,8 @@ dependencies = [
     "numpy>=1.18.3",
     "opencv-python>=4.1.2.30",
     "pandas>=1.0.5",
-    "pybasicbayes @ git+https://github.com/sneakers-the-rat/pybasicbayes.git@packaging",
-    "pyhsmm @ git+https://github.com/sneakers-the-rat/pyhsmm.git@packaging",
+    "pybasicbayes @ git+https://github.com/athp18/pybasicbayes",
+    "pyhsmm @ git+https://github.com/athp18/pyhsmm",
     "ruamel.yaml>=0.16.5",
     "scikit-image>=0.16.2",
     "scipy>=1.3.2",
