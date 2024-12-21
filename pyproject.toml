@@ -2,7 +2,6 @@
 
 [project]
 name = "moseq2_model"
-version = "1.2.0"
 description = "Modeling for the best"
 readme = "README.md"
 authors = [
