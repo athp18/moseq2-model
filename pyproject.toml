@@ -21,7 +21,7 @@ dependencies = [
     "numpy>=1.18.3",
     "opencv-python>=4.1.2.30",
     "pandas>=1.0.5",
-    "pybasicbayes @ git+https://github.com/athp18/pybasicbayes.git",
+    "pybasicbayes @ git+https://github.com/athp18/pybasicbayes",
     "pyhsmm @ git+https://github.com/athp18/pyhsmm",
     "ruamel.yaml>=0.16.5",
     "scikit-image>=0.16.2",
